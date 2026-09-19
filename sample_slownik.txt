@@ -1,0 +1,5 @@
+miejsce, w którym wypożycza się książki --> library
+osoba, która uczy uczniów --> teacher
+bardzo duży --> huge
+umiejętność robienia czegoś dobrze --> skill
+spotkanie zaplanowane na określoną godzinę --> appointment
