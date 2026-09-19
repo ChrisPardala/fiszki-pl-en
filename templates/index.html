@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fiszki EN/PL</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <main class="app-shell">
+        <section id="start-screen" class="screen active">
+            <div class="start-card panel">
+                <p class="eyebrow">LOKALNA NAUKA SŁÓWEK</p>
+                <h1>Fiszki PL ↔ EN</h1>
+                <p class="muted">
+                    Załaduj słownik w formacie:
+                    <code>polska definicja --&gt; english word</code>
+                </p>
+
+                <label id="drop-zone" class="drop-zone" for="file-input">
+                    <input id="file-input" type="file" accept=".txt,text/plain" hidden>
+                    <span class="upload-icon">↑</span>
+                    <strong>Załaduj plik .txt</strong>
+                    <span>kliknij albo przeciągnij plik tutaj</span>
+                </label>
+
+                <div id="upload-message" class="message" aria-live="polite"></div>
+            </div>
+
+            <div class="saved-section">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">ZAPISANE ZESTAWY</p>
+                        <h2>Twoje słowniki</h2>
+                    </div>
+                    <button id="refresh-sets" class="ghost-button" type="button">Odśwież</button>
+                </div>
+                <div id="saved-sets" class="saved-sets"></div>
+            </div>
+        </section>
+
+        <section id="direction-screen" class="screen">
+            <div class="panel choice-panel">
+                <button class="back-button" data-action="back-start" type="button">← Wróć</button>
+                <p class="eyebrow">ZESTAW</p>
+                <h2 id="direction-set-name"></h2>
+                <p id="direction-card-count" class="muted"></p>
+
+                <h3>Wybierz kierunek nauki</h3>
+                <div class="direction-grid">
+                    <button class="direction-button" data-direction="pl-en" type="button">
+                        <span>PL → EN</span>
+                        <strong>Polski → Angielski</strong>
+                        <small>Najpierw polska definicja</small>
+                    </button>
+                    <button class="direction-button" data-direction="en-pl" type="button">
+                        <span>EN → PL</span>
+                        <strong>Angielski → Polski</strong>
+                        <small>Najpierw angielskie słowo</small>
+                    </button>
+                </div>
+
+                <div id="history-box" class="history-box"></div>
+            </div>
+        </section>
+
+        <section id="study-screen" class="screen">
+            <div class="study-topbar">
+                <button class="ghost-button" data-action="quit-study" type="button">← Zestawy</button>
+
+                <div class="scoreboard">
+                    <span><b id="correct-count">0</b> umiem</span>
+                    <span><b id="incorrect-count">0</b> nie umiem</span>
+                    <span><b id="remaining-count">0</b> zostało</span>
+                </div>
+
+                <div id="study-direction" class="direction-badge"></div>
+            </div>
+
+            <div class="study-area">
+                <p id="round-label" class="eyebrow"></p>
+
+                <button id="flashcard" class="flashcard" type="button" aria-label="Obróć fiszkę">
+                    <span class="flashcard-inner">
+                        <span class="flashcard-face flashcard-front">
+                            <span class="card-side-label">PYTANIE</span>
+                            <span id="front-text" class="card-text"></span>
+                        </span>
+                        <span class="flashcard-face flashcard-back">
+                            <span class="card-side-label">ODPOWIEDŹ</span>
+                            <span id="back-text" class="card-text"></span>
+                        </span>
+                    </span>
+                </button>
+
+                <p id="flip-hint" class="flip-hint">Kliknij fiszkę, aby zobaczyć odpowiedź</p>
+
+                <div class="answer-buttons">
+                    <button id="dont-know-button" class="answer-button dont-know" type="button" disabled>
+                        Nie umiem
+                    </button>
+                    <button id="know-button" class="answer-button know" type="button" disabled>
+                        Umiem
+                    </button>
+                </div>
+
+                <p class="keyboard-hint">
+                    Spacja: obróć · ← nie umiem · → umiem
+                </p>
+            </div>
+        </section>
+
+        <section id="summary-screen" class="screen">
+            <div class="panel summary-panel">
+                <p class="eyebrow">KONIEC RUNDY</p>
+                <h2>Podsumowanie</h2>
+
+                <div class="summary-score">
+                    <div>
+                        <strong id="summary-correct">0</strong>
+                        <span>umiem</span>
+                    </div>
+                    <div>
+                        <strong id="summary-incorrect">0</strong>
+                        <span>nie umiem</span>
+                    </div>
+                </div>
+
+                <div class="summary-actions">
+                    <button id="repeat-mistakes" class="primary-button" type="button">
+                        Powtórz tylko błędne
+                    </button>
+                    <button id="restart-all" class="secondary-button" type="button">
+                        Zacznij od początku
+                    </button>
+                    <button class="ghost-button" data-action="back-direction" type="button">
+                        Zmień kierunek
+                    </button>
+                </div>
+
+                <p id="summary-message" class="muted"></p>
+            </div>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
