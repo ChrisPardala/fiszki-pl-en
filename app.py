@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import sqlite3
 from datetime import datetime
 from pathlib import Path
@@ -11,7 +10,7 @@ from werkzeug.utils import secure_filename
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "flashcards.db"
 UPLOAD_DIR = BASE_DIR / "uploads"
-UPLOAD_DIR.mkdir(exist_ok=True)
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".txt"}
 MAX_FILE_SIZE = 2 * 1024 * 1024  # 2 MB
@@ -32,43 +31,48 @@ def init_db():
         conn.executescript(
             """
             CREATE TABLE IF NOT EXISTS sets (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                stored_filename TEXT NOT NULL,
-                created_at TEXT NOT NULL
+                                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                                name TEXT NOT NULL,
+                                                stored_filename TEXT NOT NULL,
+                                                created_at TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS cards (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                set_id INTEGER NOT NULL,
-                polish TEXT NOT NULL,
-                english TEXT NOT NULL,
-                FOREIGN KEY (set_id) REFERENCES sets(id) ON DELETE CASCADE
-            );
+                                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                                 set_id INTEGER NOT NULL,
+                                                 polish TEXT NOT NULL,
+                                                 english TEXT NOT NULL,
+                                                 FOREIGN KEY (set_id) REFERENCES sets(id) ON DELETE CASCADE
+                );
 
             CREATE TABLE IF NOT EXISTS sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                set_id INTEGER NOT NULL,
-                direction TEXT NOT NULL,
-                mode TEXT NOT NULL DEFAULT 'all',
-                started_at TEXT NOT NULL,
-                finished_at TEXT NOT NULL,
-                total INTEGER NOT NULL,
-                correct INTEGER NOT NULL,
-                incorrect INTEGER NOT NULL,
-                FOREIGN KEY (set_id) REFERENCES sets(id) ON DELETE CASCADE
-            );
+                                                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                                    set_id INTEGER NOT NULL,
+                                                    direction TEXT NOT NULL,
+                                                    mode TEXT NOT NULL DEFAULT 'all',
+                                                    started_at TEXT NOT NULL,
+                                                    finished_at TEXT NOT NULL,
+                                                    total INTEGER NOT NULL,
+                                                    correct INTEGER NOT NULL,
+                                                    incorrect INTEGER NOT NULL,
+                                                    FOREIGN KEY (set_id) REFERENCES sets(id) ON DELETE CASCADE
+                );
 
             CREATE TABLE IF NOT EXISTS session_answers (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_id INTEGER NOT NULL,
-                card_id INTEGER NOT NULL,
-                is_correct INTEGER NOT NULL,
-                FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
+                                                           id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                                           session_id INTEGER NOT NULL,
+                                                           card_id INTEGER NOT NULL,
+                                                           is_correct INTEGER NOT NULL,
+                                                           FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
                 FOREIGN KEY (card_id) REFERENCES cards(id) ON DELETE CASCADE
-            );
+                );
             """
         )
+
+
+# Ważne dla Render/Gunicorn:
+# gunicorn uruchamia aplikację jako app:app, więc blok __main__ się nie wykona.
+init_db()
 
 
 def parse_txt(content: str):
@@ -111,11 +115,11 @@ def list_sets():
                 s.id,
                 s.name,
                 s.created_at,
-                COUNT(c.id) AS card_count,
+                COUNT(DISTINCT c.id) AS card_count,
                 COALESCE(MAX(se.finished_at), '') AS last_studied
             FROM sets s
-            LEFT JOIN cards c ON c.set_id = s.id
-            LEFT JOIN sessions se ON se.set_id = s.id
+                     LEFT JOIN cards c ON c.set_id = s.id
+                     LEFT JOIN sessions se ON se.set_id = s.id
             GROUP BY s.id
             ORDER BY s.created_at DESC
             """
@@ -169,6 +173,7 @@ def upload():
         return jsonify({"error": "Obsługiwane są tylko pliki .txt."}), 400
 
     raw = file.read()
+
     try:
         content = raw.decode("utf-8-sig")
     except UnicodeDecodeError:
@@ -200,7 +205,11 @@ def upload():
     safe_name = secure_filename(original_name) or "slownik.txt"
     stored_filename = f"{timestamp}_{safe_name}"
     stored_path = UPLOAD_DIR / stored_filename
-    stored_path.write_bytes(raw)
+
+    try:
+        stored_path.write_bytes(raw)
+    except OSError:
+        stored_filename = ""
 
     with get_db() as conn:
         cursor = conn.execute(
@@ -261,6 +270,7 @@ def save_session():
             continue
 
         cleaned_answers.append((card_id, 1 if is_correct else 0))
+
         if is_correct:
             correct += 1
         else:
@@ -307,7 +317,10 @@ def save_session():
             INSERT INTO session_answers (session_id, card_id, is_correct)
             VALUES (?, ?, ?)
             """,
-            [(session_id, card_id, is_correct) for card_id, is_correct in cleaned_answers],
+            [
+                (session_id, card_id, is_correct)
+                for card_id, is_correct in cleaned_answers
+            ],
         )
 
     return jsonify(
@@ -337,7 +350,7 @@ def get_history(set_id: int):
             FROM sessions
             WHERE set_id = ?
             ORDER BY finished_at DESC
-            LIMIT 20
+                LIMIT 20
             """,
             (set_id,),
         ).fetchall()
@@ -358,21 +371,29 @@ def delete_set(set_id: int):
 
         conn.execute("DELETE FROM sets WHERE id = ?", (set_id,))
 
-    stored_path = UPLOAD_DIR / row["stored_filename"]
-    try:
-        if stored_path.exists():
-            stored_path.unlink()
-    except OSError:
-        pass
+    stored_filename = row["stored_filename"]
+    if stored_filename:
+        stored_path = UPLOAD_DIR / stored_filename
+        try:
+            if stored_path.exists():
+                stored_path.unlink()
+        except OSError:
+            pass
 
     return jsonify({"ok": True})
 
 
+@app.get("/health")
+def health():
+    return jsonify({"status": "ok"})
+
+
 @app.errorhandler(413)
 def too_large(_error):
-    return jsonify({"error": "Plik jest za duży. Maksymalny rozmiar to 2 MB."}), 413
+    return jsonify(
+        {"error": "Plik jest za duży. Maksymalny rozmiar to 2 MB."}
+    ), 413
 
 
 if __name__ == "__main__":
-    init_db()
     app.run(host="127.0.0.1", port=5000, debug=True)
